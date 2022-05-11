@@ -1,4 +1,3 @@
-import { string, task } from 'fp-ts';
 
 // In memory database:
 const companyToSalesperson: Map<string, string> = new Map<string, string>([
@@ -12,14 +11,17 @@ const sales: Map<string, number[]> = new Map<string, number[]>([
 ]);
 
 // Get stuff from Db:
-const getSalesPerson = (company: string): string => companyToSalesperson.get(company) ?? '';
+const getSalesPerson = (company: string): string =>
+  companyToSalesperson.get(company) ?? '';
 
-const getSales = (customerId: string): Array<number> => sales.get(customerId) ?? [];
+const getSales = (customerId: string): Array<number> =>
+  sales.get(customerId) ?? [];
 
-import { pipe, flow } from 'fp-ts/function';
+import {pipe, flow} from 'fp-ts/function';
 import * as A from 'fp-ts/Array';
 import * as T from 'fp-ts/Task';
-import { Task } from 'fp-ts/Task';
+import {Task} from 'fp-ts/Task';
+
 
 describe('getting all sales', () => {
   test('gets array of all sales', () => {
@@ -27,7 +29,8 @@ describe('getting all sales', () => {
     const customerIds: Array<string> = companies.map((company) => getSalesPerson(company));
     // map isn't appropriate, because it results in an array of arrays, so instead use flatMap.
     // const customerSales: Array<Array<number>> = customerIds.map(custId => getSales(custId));
-    const customerSales: Array<number> = customerIds.flatMap((custId) => getSales(custId));
+    const customerSales: Array<number> =
+    customerIds.flatMap((custId) => getSales(custId));
 
     expect(customerSales).toEqual([1, 2, 4, 10, 20, 40]);
   });
@@ -40,22 +43,26 @@ describe('getting all sales', () => {
   });
 
   test('gets array of all sales, short form', () => {
-    const customerSales: Array<number> = ['Hombredequeso Inc', 'Micky & Co.'].map(getSalesPerson).flatMap(getSales);
+    const customerSales: Array<number> =
+      ['Hombredequeso Inc', 'Micky & Co.'].map(getSalesPerson).flatMap(getSales);
     expect(customerSales).toEqual([1, 2, 4, 10, 20, 40]);
   });
 
   test('gets array of all sales, same thing in fp-ts', () => {
     const customerSales: Array<number> = pipe(
-      ['Hombredequeso Inc', 'Micky & Co.'],
-      A.map(getSalesPerson),
-      A.chain(getSales) // .chain is same as .flatMap
+        ['Hombredequeso Inc', 'Micky & Co.'],
+        A.map(getSalesPerson),
+        A.chain(getSales), // .chain is same as .flatMap
     );
     expect(customerSales).toEqual([1, 2, 4, 10, 20, 40]);
   });
 
   test('gets array of all sales, using fp-ts flow', () => {
     const companies = ['Hombredequeso Inc', 'Micky & Co.'];
-    const getAllSales: (companies: string[]) => number[] = flow(A.map(getSalesPerson), A.chain(getSales));
+    const getAllSales: (companies: string[]) => number[] =
+      flow(
+          A.map(getSalesPerson),
+          A.chain(getSales));
     expect(getAllSales(companies)).toEqual([1, 2, 4, 10, 20, 40]);
   });
 });
@@ -70,7 +77,7 @@ const getSalesP = (customerId: string): Promise<Array<number>> => Promise.resolv
 
 describe('Promise await edition', () => {
   test('awaits pt1', async () => {
-    const company: string = 'Hombredequeso Inc';
+    const company = 'Hombredequeso Inc';
     const salesPerson: string = await getSalesPersonP(company);
     const sales: number[] = await getSalesP(salesPerson);
 
@@ -79,7 +86,19 @@ describe('Promise await edition', () => {
 
   test('awaits, using .then ', async () => {
     const company = 'Hombredequeso Inc';
-    const result = getSalesPersonP(company).then((salesPerson) => getSalesP(salesPerson));
+    const result: Promise<number[]> =
+      getSalesPersonP(company)
+          .then((salesPerson) => getSalesP(salesPerson));
+
+    expect(await result).toEqual([1, 2, 4]);
+  });
+
+
+  test('awaits, using .then with no param', async () => {
+    const company = 'Hombredequeso Inc';
+    const result: Promise<number[]> =
+      getSalesPersonP(company)
+          .then(getSalesP);
 
     expect(await result).toEqual([1, 2, 4]);
   });
@@ -98,7 +117,11 @@ const getSalesT = (customerId: string): Task<Array<number>> => T.of(sales.get(cu
 describe('what about this?? Tasks', () => {
   test('awaits pt0', async () => {
     const company = 'Hombredequeso Inc';
-    const result2: Task<Array<number>> = pipe(company, getSalesPersonT, T.chain(getSalesT));
+    const result2: Task<Array<number>> =
+      pipe(
+          company,
+          getSalesPersonT,
+          T.chain(getSalesT));
 
     expect(await result2()).toEqual([1, 2, 4]);
   });
@@ -106,10 +129,10 @@ describe('what about this?? Tasks', () => {
   test('awaits pt1', async () => {
     const company = 'Hombredequeso Inc';
     const result2: Task<number[]> = pipe(
-      T.Do,
-      T.bind('salesPerson', () => getSalesPersonT(company)), // parallels: salesPerson = await getSalesPersonT(company)
-      T.bind('sales', ({ salesPerson }) => getSalesT(salesPerson)), // parallels: sales = await getSalesT(salesPerson)
-      T.map(({ sales, salesPerson }) => sales)
+        T.Do,
+        T.bind('salesPerson', () => getSalesPersonT(company)), // cf: salesPerson = await getSalesPersonT(company)
+        T.bind('sales', ({salesPerson}) => getSalesT(salesPerson)), // cf: sales = await getSalesT(salesPerson)
+        T.map(({sales, salesPerson}) => sales),
     );
 
     expect(await result2()).toEqual([1, 2, 4]);
