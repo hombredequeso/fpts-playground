@@ -6,7 +6,7 @@ const companyToSalesperson: Map<string, string> = new Map<string, string>([
   ['Micky & Co.', '111-222'],
 ]);
 
-// salesPersonId -> [saleAmount]
+// salesPersonId -> Array<saleAmount>
 const sales: Map<string, number[]> = new Map<string, number[]>([
   ['123-456', [1, 2, 4]],
   ['111-222', [10, 20, 40]],
@@ -19,7 +19,7 @@ const getSalesPerson = (company: string): string =>
   companyToSalesperson.get(company) ?? '';
 
 // For a sales person, get amounts of their sales
-// salesPersonId => [saleAmount]
+// salesPersonId => Array<saleAmount>
 const getSales = (salesPersonId: string): Array<number> =>
   sales.get(salesPersonId) ?? [];
 
@@ -30,7 +30,8 @@ import {Task} from 'fp-ts/Task';
 
 
 describe('getting all sales', () => {
-  test('gets array of all sales', () => {
+  test('gets array of all sales for a list of companies', () => {
+
     const companies: Array<string> = ['Hombredequeso Inc', 'Micky & Co.'];
     const salesPersonIds: Array<string> = companies.map((company) => getSalesPerson(company));
     // map isn't appropriate, because it results in an array of arrays, so instead use flatMap.
@@ -39,6 +40,7 @@ describe('getting all sales', () => {
       salesPersonIds.flatMap((salesPersonId) => getSales(salesPersonId));
 
     expect(allSales).toEqual([1, 2, 4, 10, 20, 40]);
+
   });
 
   test('gets array of all sales, no explicit arguments', () => {
@@ -49,8 +51,10 @@ describe('getting all sales', () => {
   });
 
   test('gets array of all sales, short form', () => {
+
+    const companies = ['Hombredequeso Inc', 'Micky & Co.'];
     const allSales: Array<number> =
-      ['Hombredequeso Inc', 'Micky & Co.']
+      companies
       .map(getSalesPerson)
       .flatMap(getSales);
       
@@ -72,6 +76,9 @@ describe('getting all sales', () => {
   test('gets array of all sales, same thing in fp-ts, pipeless edition', () => {
 
     const companies: Array<string> = ['Hombredequeso Inc', 'Micky & Co.'];
+    // Uses curried functions.
+    // Can imagine this as if A.Map(getSalesPerson, companies)
+    // but currying the function makes pipe possible.
     const salesPersonIds: Array<string> = A.map(getSalesPerson)(companies)
     const allSales: Array<number> = A.chain(getSales)(salesPersonIds)
 
@@ -98,6 +105,7 @@ describe('getting all sales', () => {
 // Different notation for something we already know (how annoying)
 // a way forward to dealing with different container types (e.g. Array, ...)  in the same way.
 
+
 // Slightly different scenario...
 // * company may or may not have a sales person, actually modelled (unlike before where empty string was used)
 // * we are only interested in counting the most recent sale of each sales person.
@@ -106,6 +114,100 @@ describe('getting all sales', () => {
 import * as O from 'fp-ts/Option';
 import {Option} from 'fp-ts/Option';
 
+
+const toInt = (s: string): Option<number> => {
+  const result = parseInt(s);
+  return result === NaN? O.none: O.some(result);
+}
+
+const toCompanyId = (n:number): string => `comp:${n}`;
+
+interface Contact {
+  name: string
+}
+
+const companyContacts: Map<string, Contact> = new Map<string, Contact>([
+  ['comp:123', {name: 'Dr Hombre de Queso'}],
+  ['comp:456', {name: 'Sir Micky'}]
+]);
+
+const getContact = (companyId: string): Option<Contact> => {
+  const contact = companyContacts.get(companyId);
+  return (contact === undefined)? O.none : O.some(contact);
+}
+
+
+describe('another attempt', () => {
+  test('gets array of all sales', () => {
+    const inputString: string = '123';
+    const parsedInput: Option<number> = toInt(inputString);
+    // If this doesn't make sense, just pretend for now it is
+    // O.map(toCompanyId, parsedInput)
+    // and option is like an array with 0 or 1 element.
+    const companyId: Option<string> = O.map(toCompanyId)(parsedInput);
+    const companyContact: Option<Contact> = O.chain(getContact)(companyId)
+
+    expect(companyContact).toEqual(O.some({name: 'Dr Hombre de Queso'}))
+  });
+
+  test('using pipe', () => {
+
+    const inputString: string = '123';
+    const companyContact = pipe(
+      inputString,
+      toInt,
+      O.map(toCompanyId),
+      O.chain(getContact)
+    )
+    expect(companyContact).toEqual(O.some({name: 'Dr Hombre de Queso'}))
+
+  });
+})
+
+// redone with null.
+
+const toIntN = (s: string): number | null => {
+  const result = parseInt(s);
+  return result === NaN? null : result;
+}
+
+interface Contact {
+  name: string
+}
+
+const getContactN = (companyId: string): Contact | null => {
+  const contact = companyContacts.get(companyId);
+  return (contact === undefined)? null : contact;
+}
+
+
+describe('another attempt with null', () => {
+  test('get company contact', () => {
+    const inputString: string = '123';
+    const parsedInput: number | null = toIntN(inputString);
+    const companyId: string | null = 
+      (parsedInput === null) ? null : toCompanyId(parsedInput)
+    const companyContact: Contact | null = 
+      (companyId === null) ? null : getContactN(companyId);
+    expect(companyContact).toEqual({name: 'Dr Hombre de Queso'});
+  })
+
+  // test('using pipe', () => {
+  //   // Can't be done because functions with the resultant type T | null don't compose
+  // });
+
+  // Variations on the theme...
+  //
+  // if (thingy != null) {
+  //     return f(thingy)
+  // }
+  // return null;
+  //    
+})
+
+
+
+
 const mostRecentSale: Map<string, number> = new Map<string, number>([
   ['123-456', 101]
 ]);
@@ -113,10 +215,12 @@ const mostRecentSale: Map<string, number> = new Map<string, number>([
 // Assume every company has one sales person ... or not.
 const getSalesPersonO = (company: string): Option<string> => {
   const salesPerson: string | undefined = companyToSalesperson.get(company);
+  // This converts any form of string | null | undefined => Option<string>
   const result: Option<string> = O.fromNullable(salesPerson); // value is either: O.none | O.some(str)
   return result;
 }
 
+// A sales person may or may not have a sale (most recent sale)
 const getMostRecentSale = (salesPersonId: string): Option<number> => {
   const sale = mostRecentSale.get(salesPersonId);
   const result: Option<number> = O.fromNullable(sale);
