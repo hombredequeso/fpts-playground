@@ -68,8 +68,8 @@ describe("sequence tests Array<Option<", () => {
 import * as T from 'fp-ts/Task';
 import {Task} from 'fp-ts/Task';
 
-import * as ROA from 'fp-ts/ReadonlyArray'
-import { task } from "fp-ts";
+// import * as ROA from 'fp-ts/ReadonlyArray'
+// import { task } from "fp-ts";
 
 describe("sequence tests Array<Task<", () => {
 	test("works", async () => {
